@@ -1,0 +1,190 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<Html>
+   <head>
+
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    
+	<!-- CSS -->
+    <link type="text/css" rel="stylesheet" href="materialize/css/materialize.min.css"  media="screen,projection"/>
+	<!--     <link type="text/css" rel="stylesheet" href= "css/style.css"  media="screen"> -->    
+    
+    <!-- Javascript -->
+	<script type="text/javascript" src="js/jquery.js"></script>
+	<script type="text/javascript" src="materialize/js/materialize.min.js"></script>
+	<script src="js/d3.min.js"></script>
+	<script src="js/main.js"></script>
+
+      <title>
+         A Small Hello 
+      </title>
+    <style>
+	#xaxis .domain {
+		fill:none;
+		stroke:#000;
+	}
+	#xaxis text, #yaxis text {
+		font-size: 12px;
+	}
+	.precission_line{ 
+    	stroke: steelblue;
+    	stroke-width: 2;
+    	fill: none;
+	}
+	.recall_line{ 
+    	stroke: seagreen;
+    	stroke-width: 2;
+    	fill: none;
+	}
+	.axis path,
+	.axis line {
+    	fill: none;
+    	stroke: grey;
+    	stroke-width: 1;
+    	shape-rendering: crispEdges;
+	}
+	.legend rect {
+		  fill:white;
+		  stroke:black;
+		  opacity:0.8;
+	}
+	body{
+		background-color: #eee;
+	}
+	</style>
+   </head>
+<body>
+
+    <div class="container">
+       	
+       	<div class="row">
+       		<div class="col s8">
+       			<div class="card">
+		            <div class="card-content">
+		              <span class="card-title">Stringder</span>
+		              <p>I am a very simple card. I am good at containing small bits of information.
+		              I am convenient because I require little markup to use effectively.</p>
+		            </div>
+		        </div>
+       		</div>
+        	<div class="col s4">
+       			<div class="card">
+       				<div class="card-content">
+       					<span class="card-title">File upload</span>
+       					<form method="post" action="/file_upload" enctype="multipart/form-data">
+							<br>
+							Raw strings:
+							<input type="file" name="raw_strings" id="raw_strings">
+							<br>
+							Clean strings
+							<input type="file" name="clean_strings" id="raw_strings">
+							<input type="submit" />
+						</form> 
+				 	</div>
+				 </div>
+			</div>
+       		<div class="col s4">
+       			<!-- <div class="card">
+		            <div class="card-content">
+		              <span class="card-title">Model KPIs</span>
+
+			            <table style="width:100%">
+							  <tr>
+							    <td></td>
+							    <td>Match</td>
+							    <td>Non-match</td>
+							    <td>Total</td>
+							  </tr>
+							  <tr>
+							    <td>Predicted match</td>
+							    <td style='text-align: center;'><span id='span_KPI_true_positives'></span></td>
+							    <td style='text-align: center;'><span id='span_KPI_false_positives'></span></td>
+							    <td style='text-align: center;'><span id='span_KPI_total_positives'></span></td>
+							  </tr>
+							  <tr>
+							    <td>Predicted non-match</td>
+							    <td style='text-align: center;'><span id='span_KPI_false_negatives'></span></td>
+							    <td style='text-align: center;'><span id='span_KPI_true_negatives'></span></td>
+							    <td style='text-align: center;'><span id='span_KPI_total_negatives'></span></td>
+							  </tr>
+							  <tr>
+							    <td>Total</td>
+							    <td style='text-align: center;'><span id='span_KPI_number_of_matches'></span></td>
+							    <td style='text-align: center;'><span id='span_KPI_number_of_non_matches'></span></td>
+							    <td style='text-align: center;'><span id='span_KPI_number_of_votes'></span></td>
+							  </tr>
+						</table> 
+
+		              <p>Precission: <span id='span_KPI_precission'></span></p>
+		              <p>Recall: <span id='span_KPI_recall'></span></p>
+		            </div>
+		        </div> -->
+		        <div class="card">
+		            <div class="card-content">
+		              <span class="card-title">Training progress</span>
+		              <span style='position:absolute;right:0;margin-right:20px;'>
+							<!-- Select goodness of fit parameter button -->
+<!-- 							<a class='dropdown-button btn' href='#' data-activates='dropdown1'>Select GOF</a>
+							<ul id='dropdown1' class='dropdown-content'>
+							    <li><a href="#!">Precission</a></li>
+							    <li><a href="#!">Recall</a></li>
+							    <li><a href="#!">AUC</a></li>
+							</ul> -->
+						</span>
+		              <div id='training_progress_graph' style='width:100%; height:200px;'></div>
+		            </div>
+		        </div>
+		        <div class="card">
+		            <div class="card-content">
+		              	<span class="card-title">Goodness of fit</span>
+
+		              <div id='goodness_of_fitnes_graph' style='width:100%; height:100px;'></div>
+		            </div>
+		        </div>
+       			<div class="card">
+		            <div class="card-content">
+		              <span class="card-title">Feature importance</span>
+		              <div id='feature_importance_graph'></div>
+		            </div>
+		        </div>
+       		</div>
+<!-- 	      	<div class="col s2">
+        		<a id='classifier_button_yes' class="waves-effect waves-light btn" onClick = "return_vote('Yes')">Yes</a>
+        	</div>
+        	<div class="col s2">
+        		<a id='classifier_button_no' class="waves-effect waves-light btn" onClick = "return_vote('No')">No</a>
+        	</div> -->
+	        <div class="col s8">
+	        	<div class="card" >
+		            <div class="card-content" style="height:3000">
+		              <span class="card-title">Do these strings match?</span>
+		              <span style='position:absolute;right:0;margin-right:20px;'>
+		              	<a id='predict_button' class="waves-effect waves-light btn disabled" onClick = "predict_button()">Check predictions</a>
+		              </span>
+		              <div style='position: relative;'>
+		              	<br>
+		              	<span>No</span><span style='position:absolute;right:0;'>Yes</span>
+		              	
+		              	<hr>
+		              </div>
+		              <div style='position: relative;' id="div_sorting_strings">
+		               
+		 			  </div>
+		            </div>
+		        </div> 
+		    	<div class="row">
+		    		<div class="col s12">
+		    		</div>
+		    	</div> 
+		    </div>  
+		</div>
+    </div>
+
+</body>
+</html>
+
+<script>
+	initialize()
+</script>
+

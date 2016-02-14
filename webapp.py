@@ -173,8 +173,6 @@ def write_vote():
 	conn.execute(sql_query, [getparams['vote'], getparams['pair_index']])
 	conn.commit()
 
-	
-
 @route('/materialize/css/<path:path>')
 def materialize_css(path):
 	return static_file(path, root = 'materialize/css/')

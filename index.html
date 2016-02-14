@@ -59,15 +59,18 @@
     <div class="container">
        	
        	<div class="row">
-       		<div class="col s8">
+       		<div class="col s12">
        			<div class="card">
 		            <div class="card-content">
 		              <span class="card-title">Stringder</span>
-		              <p>I am a very simple card. I am good at containing small bits of information.
-		              I am convenient because I require little markup to use effectively.</p>
+		              <p>Data-scientists often have to match strings. As an example, suppose you have a list of streets filled in by website users (source), and a list of streets from the government (target). How do you find for each string in the source list the appropriate string in the target list?</p><br>
+		              <p>If a string in the source list does not have an exact match in the target list, there are two options: either the website user made a typo, either the source string does not exists in the target list. You could pick a traditional string distance measure, such as the number of common letters devided by the total number of letters, and use it to find the most similar string in the target list. But how do you choose the ideal distance measurement? And secondly, you have to find a cut-of value of that similarity measure, to define if it is a match or not. How do you set this cut-of? </p><br>
+		              <p>The answers to these two questions differ for each domain and problem, what works for streets might not work for restaurant names. To work around this guessing, we created an application with which you train a model who will decide for you which measures to use and which cut-offs to set. All you have to do is manually classify some string pairs as matching or not. The application creates for each of the pairs you classified the string distances and trains a classification model in the background. The model performance will increase with the amount pairs you classify. You can verify the perfomance at each time. If you are happy with the model performance, all strings in the source list will be matched and you download the set of source strings matched with their target. </p><br>
 		            </div>
 		        </div>
        		</div>
+       	</div>
+       	<div class = "row">
         	<div class="col s4">
        			<div class="card">
        				<div class="card-content">
@@ -83,8 +86,6 @@
 						</form> 
 				 	</div>
 				 </div>
-			</div>
-       		<div class="col s4">
        			<!-- <div class="card">
 		            <div class="card-content">
 		              <span class="card-title">Model KPIs</span>
@@ -173,10 +174,6 @@
 		 			  </div>
 		            </div>
 		        </div> 
-		    	<div class="row">
-		    		<div class="col s12">
-		    		</div>
-		    	</div> 
 		    </div>  
 		</div>
     </div>

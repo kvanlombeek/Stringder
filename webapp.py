@@ -12,9 +12,18 @@ from subprocess import Popen, PIPE
 def stupid_dist(a,b):
 	if(a is None): return 1
 	if(b is None): return 1
-	A = set(a.lower())
-	B = set(b.lower())
+	A = set(a.lower().strip())
+	B = set(b.lower().strip())
+	if(a == b): return 0
 	return 1-float(len(A.intersection(B)))/len(A.union(B))
+
+def find_closest_pair(source_string,target_list):
+	target_list['source_string'] = source_string
+
+	print('One more closest')
+	target_list['stupid_dist'] = [stupid_dist(source_string, target) for target in target_list['String'].values]
+	return target_list.loc[target_list['stupid_dist'].argmax(), 'String']
+
 
 conn = sqlite3.connect("data/stringder.sqlite")
 conn.text_factory = str
@@ -28,18 +37,19 @@ def build_random_forest():
 
 @route('/file_upload', method='POST')
 def file_upload():
+	# Transform file upload into pandas dataframe
 	print('file_upload')
-	raw_strings = request.files.raw_strings
-	raw_strings = pd.read_csv(raw_strings.file)
-	clean_strings = request.files.clean_strings
-	clean_strings = pd.read_csv(clean_strings.file)
-	print(raw_strings)
-	print(clean_strings)
-	#if name and data and data.file:
-    #    raw = data.file.read() # This is dangerous for big files
-    #    filename = data.filename
-    #    return "Hello %s! You uploaded %s (%d bytes)." % (name, filename, len(raw))
-    #return "You missed a field."
+	source_list = pd.read_csv(request.files.raw_strings.file, names = ["String"])
+	source_list['index'] = np.arange(0, source_list.shape[0])
+	target_list = pd.read_csv(request.files.clean_strings.file, names = ["String"])
+	target_list['index'] = np.arange(0, target_list.shape[0])
+
+	# Store both in SQLite database
+	target_list.to_sql(con=conn, name = 'target_list', index = False, if_exists='replace')
+
+	# Calculate pairs for each one
+	source_list['closest_match'] = [find_closest_pair(source_string, target_list) for source_string in source_list['String'].values]
+	source_list.to_sql(con=conn, name = 'source_list', index = False, if_exists='replace')
 
 @route('/index')
 def index():

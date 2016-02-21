@@ -2,12 +2,18 @@ import pandas as pd
 import numpy as np
 import sqlite3
 from bottle import route, run, template, static_file, request, post
-from datetime import datetime
+from datetime import datetime,  time
+import time
 import difflib
 from sklearn.ensemble import RandomForestClassifier 
 from sklearn import cross_validation, metrics
 import slowstringdist
 from subprocess import Popen, PIPE
+
+# If something on local host is still running, terminal:
+#  lsof -i TCP:3000
+# kill 68780
+
 
 def stupid_dist(a,b):
 	if(a is None): return 1
@@ -92,6 +98,11 @@ def query_two_strings():
 
 @route('/query_rf_scores')
 def query_rf_scores():
+
+	print('backend sleeps')
+	time.sleep(1)
+	print('backend wakes up')
+
 	global variable_importances
 	global precission
 	global recall

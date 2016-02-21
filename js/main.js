@@ -1,6 +1,9 @@
 
-var returned_strings;
+var strings_returned_from_backend;
 var strings_in_frontend;
+var pairs_returned_to_backend = [];
+var backend_communication_loop_running = false;
+
 var selection;
 var active_pair_index;
 var number_of_votes = 0;
@@ -8,7 +11,7 @@ var KPI_history = {}
 
 var man_class_enabled = true
 var first_time_history_graph = true
-
+var feature_importances_global
 
 // global variables for d3 graph
 var	svg_width;
@@ -23,23 +26,17 @@ width_of_div_sorting_strings = 806
 
 // Hulp functies
 function key(d){ return d['key'] }
+function return_key(d){ return d[0] }
 
 function initialize(){
 
 	// Initialize, reset all the database manual predictions in backend to NULL
-	$.ajax({
-    	url: '/initialize',
-    	dataType:'json',
-    	async: false,
-		data: {},
-		success:function(){
-		}
-	});
+	initialize_backend()
 
 	//Query the first strings and add them on screen
 	query_two_strings(50)
 	// As it is the first time, add them in the array strings on screen
-	strings_in_frontend = returned_strings;
+	strings_in_frontend = strings_returned_from_backend;
 	
 	// Add the strings in the "to sort div"	
 	selection = d3.select('#div_sorting_strings')
@@ -104,12 +101,22 @@ function query_two_strings(how_many){
 		data: {'how_many':how_many},
 		async: false,
 		success:function(strings){
-			returned_strings = strings
+			strings_returned_from_backend = strings
 		}
 	});
 }
 
-
+function initialize_backend(){
+	$.ajax({
+    	url: '/initialize',
+    	dataType:'json',
+    	async: false,
+		data: {},
+		success:function(){
+			console.log('Backend initialized')
+		}
+	});
+}
 
 function predict_button(){
 
@@ -164,32 +171,29 @@ function actions_after_vote(vote){
 	// Parameter to keep track of votes
 	number_of_votes = number_of_votes + 1;
 
-	//First store and return vote
+	//First store vote
 	strings_in_frontend[active_pair_index]['man_vote'] = vote
-	$.ajax({
-    	url: '/return_vote',
-    	dataType:'json',
-    	async: false,
-		data: {'pair_index':active_pair_index,
-				'vote':vote},
-		success:function(){
-		}
-	});
 
-	// Delete the first votes on top of the page
+	// Delete the first votes on top of the page, DANGEROUS
 	if(number_of_votes > 5){
 		delete strings_in_frontend[d3.keys(strings_in_frontend)[0]]
 	}
 
+	// More than 10 votes, start building random forests in backend
+	if(number_of_votes > 15){
+		if(!backend_communication_loop_running){
+			backend_communication_loop_running = true
+			console.log('Start backend communication')
+			backend_communication_loop()
+			console.log('Does he continue?')
+		}
+	}
+	
 	// More than 20 votes, enable the predict 
 	if(number_of_votes == 20){
 		$('#predict_button').removeClass()
 		$('#predict_button').addClass('waves-effect waves-light btn')
 	}
-	
-	// Now query a new pair of strings and add it to the array
-	query_two_strings(1)
-	strings_in_frontend[d3.keys(returned_strings)[0]] = returned_strings[d3.keys(returned_strings)[0]]
 
 	// Search for active pair
 	var pair_not_found = true
@@ -201,64 +205,48 @@ function actions_after_vote(vote){
     	}
     	i++;
 	}
+	update_d3_string_pairs_table()
+}
 
-	// Add the random forest scores to it
-	$.ajax({
-    	url: '/query_rf_scores',
-    	dataType:'json',
-    	async: false,
-		data: {},
-		success:function(rf_scores){
-			//Random forest joinen met reeds bestaande strings
-			for(i=0; i<d3.keys(strings_in_frontend).length; i++){
-				strings_in_frontend[d3.keys(strings_in_frontend)[i]]['rf_prediction'] = rf_scores[d3.keys(strings_in_frontend)[i]]['rf_prediction']
+function backend_communication_loop(){
+	console.log('begin communcation loop')
+	
+	// Return votes that were not yet returned, keep track of how many, this number has to be requested again
+	var temp_how_many_returned = 0
+	for(i=0; i < d3.entries(strings_in_frontend).length; i++){
+		// Is the pair voted?
+		if(d3.values(strings_in_frontend)[i]['man_vote'] != null){
+			if(pairs_returned_to_backend.indexOf(d3.keys(strings_in_frontend)[i]) == -1){
+				return_vote(d3.keys(strings_in_frontend)[i], d3.values(strings_in_frontend)[i]['man_vote'])
+				pairs_returned_to_backend.push(d3.keys(strings_in_frontend)[i])
+				temp_how_many_returned +=1
 			}
+
 		}
-	});
+	}
 
-	// Query the feature importances
-	$.ajax({
-		url: '/query_feature_importances',
-		dataType:'json',
-		async:false,
-		data:{},
-		success:function(feature_importances){
-			if(number_of_votes>10){
-				build_feature_imp_graph(feature_importances)
-			}	
+	if(temp_how_many_returned == 0){
+		backend_communication_loop_running = false
+		//No reason to continue loop
+		return;
+	}
+
+	// Request new strings
+	console.log('How many new strings requested: ' + temp_how_many_returned)
+	if(temp_how_many_returned > 0){
+		query_two_strings(temp_how_many_returned)
+		for(i=0; i<d3.entries(strings_returned_from_backend).length; i++){
+			strings_in_frontend[d3.keys(strings_returned_from_backend)[i]] = strings_returned_from_backend[d3.keys(strings_returned_from_backend)[i]]		
 		}
-	})
+	}
+	
+	// Request random forest scores
+	request_rf_backend()
 
-	// Query model KPIs
-	$.ajax({
-		url: '/query_model_KPIs',
-		dataType:'json',
-		async:false,
-		data:{},
-		success:function(model_KPIs){
-			$('#span_KPI_number_of_votes').text(model_KPIs['number_of_votes'])
-			$('#span_KPI_number_of_matches').text(model_KPIs['number_of_matches'])
-			$('#span_KPI_number_of_non_matches').text(model_KPIs['number_of_non_matches'])
-			
-			if(number_of_votes > 10){
-				KPI_history[number_of_votes] = {'precission': model_KPIs['precission'], 'recall': model_KPIs['recall']}
-				$('#span_KPI_precission').text(model_KPIs['true_positives'] + "/(" + model_KPIs['true_positives'] +"+"+model_KPIs['false_positives'] + ")=" +
-				  Math.round(model_KPIs['precission']*100) + "%")
+	//setTimeout(backend_communication(), 50000);
+}
 
-				$('#span_KPI_recall').text(model_KPIs['true_positives'] + "/(" + model_KPIs['true_positives'] +"+"+model_KPIs['false_negatives'] + ")=" +
-					Math.round(model_KPIs['recall']*100) + "%")
-				$('#span_KPI_true_positives').text(Math.round(model_KPIs['true_positives']))
-				$('#span_KPI_false_positives').text(Math.round(model_KPIs['false_positives']))
-				$('#span_KPI_true_negatives').text(Math.round(model_KPIs['true_negatives']))	
-				$('#span_KPI_false_negatives').text(Math.round(model_KPIs['false_negatives']))	
-				$('#span_KPI_total_positives').text(Math.round(model_KPIs['true_positives'] + model_KPIs['false_positives']))	
-				$('#span_KPI_total_negatives').text(Math.round(model_KPIs['true_negatives'] + model_KPIs['false_negatives']))
-
-				build_goodness_of_fit_graph(model_KPIs)	
-				build_KPI_history_graph(KPI_history)
-			}
-		}
-	})	
+function update_d3_string_pairs_table(){
 
 	// Now update the DOM with d3
 	selection = d3.select("#div_sorting_strings").selectAll("span")
@@ -307,6 +295,89 @@ function actions_after_vote(vote){
 				})
 }
 
+// This function is recursive, when finished (and all results are returned from backend, it calls itself again
+function request_rf_backend(){
+
+	// Request backend to train random forests and join returning votes
+	$.ajax({
+    	url: '/query_rf_scores',
+    	dataType:'json',
+    	async: true,
+		data: {},
+		success:function(rf_scores){
+			//Random forest joinen met reeds bestaande strings
+			for(i=0; i<d3.keys(strings_in_frontend).length; i++){
+				strings_in_frontend[d3.keys(strings_in_frontend)[i]]['rf_prediction'] = rf_scores[d3.keys(strings_in_frontend)[i]]['rf_prediction']
+			}
+			// Model KPIs and features importances opvragen
+			request_feature_importances()
+			request_model_KPIs()
+
+			// Ask again for backend
+			backend_communication_loop()
+		}
+	});
+}
+function request_feature_importances(){
+	// Query the feature importances
+	$.ajax({
+		url: '/query_feature_importances',
+		dataType:'json',
+		async:false,
+		data:{},
+		success:function(feature_importances){
+			if(number_of_votes>10){
+				build_feature_imp_graph(feature_importances)
+			}	
+		}
+	})
+
+}
+function request_model_KPIs(){
+	// Query model KPIs
+	$.ajax({
+		url: '/query_model_KPIs',
+		dataType:'json',
+		async:false,
+		data:{},
+		success:function(model_KPIs){
+			$('#span_KPI_number_of_votes').text(model_KPIs['number_of_votes'])
+			$('#span_KPI_number_of_matches').text(model_KPIs['number_of_matches'])
+			$('#span_KPI_number_of_non_matches').text(model_KPIs['number_of_non_matches'])
+			
+			if(number_of_votes > 10){
+				KPI_history[number_of_votes] = {'precission': model_KPIs['precission'], 'recall': model_KPIs['recall']}
+				$('#span_KPI_precission').text(model_KPIs['true_positives'] + "/(" + model_KPIs['true_positives'] +"+"+model_KPIs['false_positives'] + ")=" +
+				  Math.round(model_KPIs['precission']*100) + "%")
+
+				$('#span_KPI_recall').text(model_KPIs['true_positives'] + "/(" + model_KPIs['true_positives'] +"+"+model_KPIs['false_negatives'] + ")=" +
+					Math.round(model_KPIs['recall']*100) + "%")
+				$('#span_KPI_true_positives').text(Math.round(model_KPIs['true_positives']))
+				$('#span_KPI_false_positives').text(Math.round(model_KPIs['false_positives']))
+				$('#span_KPI_true_negatives').text(Math.round(model_KPIs['true_negatives']))	
+				$('#span_KPI_false_negatives').text(Math.round(model_KPIs['false_negatives']))	
+				$('#span_KPI_total_positives').text(Math.round(model_KPIs['true_positives'] + model_KPIs['false_positives']))	
+				$('#span_KPI_total_negatives').text(Math.round(model_KPIs['true_negatives'] + model_KPIs['false_negatives']))
+
+				build_goodness_of_fit_graph(model_KPIs)	
+				build_KPI_history_graph(KPI_history)
+			}
+		}
+	})
+}
+
+function return_vote(pair_index, vote){
+	$.ajax({
+    	url: '/return_vote',
+    	dataType:'json',
+    	async: false,
+		data: {'pair_index':pair_index,
+				'vote':vote},
+		success:function(){
+		}
+	});
+}
+
 $(document).keydown(function(e) {
     switch(e.which) {
         case 37: // left
@@ -340,7 +411,7 @@ function build_KPI_history_graph(KPI_history){
 	 					.range([0 + margin_left,$('#training_progress_graph_svg').width() - margin_right]);
 
 	var yscale = d3.scale.linear()
-	 					.domain([1, 0.5])
+	 					.domain([1, 0])
 	 					.range([0 + margin_left,$('#training_progress_graph_svg').height() - margin_right]);
 
 	// Define the axes
@@ -421,10 +492,6 @@ function build_KPI_history_graph(KPI_history){
             .duration(750)
             .call(yAxis);
 	}
-
-
-
-
 
 	//training_progress_graph
 	console.log(KPI_history)
@@ -582,12 +649,6 @@ function build_goodness_of_fit_graph(model_KPIs){
 						if(d['key'] == 'recall') return String("Recall: " + Math.round(d['value']*100) + "%")
 					})
 
-}
-
-var feature_importances_global
-
-function return_key(d){
-	return d[0]
 }
 
 function build_feature_imp_graph(feature_importances){
